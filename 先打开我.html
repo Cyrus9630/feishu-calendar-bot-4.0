@@ -135,36 +135,36 @@
       <header>
         <div class="mark">源码已脱敏，可以独立部署</div>
         <h1>飞书日程机器人</h1>
-        <p class="lead">不用改代码。推荐把这个文件夹交给 Codex；也可以双击启动部署助手，按照中文提示填写你自己的飞书信息。</p>
+        <p class="lead">先安装飞书 CLI，然后双击对应系统入口。安装器会自动识别当前用户、群聊和可写日历，并完成妙搭创建、源码上传和发布。</p>
       </header>
 
-      <section class="choice" aria-labelledby="codex-title">
-        <h2 id="codex-title">推荐：交给 Codex 帮我部署</h2>
-        <p>把整个解压后的文件夹拖进 Codex，再把下面这句话发给它。Codex 会检查环境、引导你填写信息并完成妙搭发布。</p>
-        <div class="actions">
-          <a class="button" href="给Codex的一句话.txt">打开给 Codex 的一句话</a>
-        </div>
-      </section>
-
       <section class="choice" aria-labelledby="self-title">
-        <h2 id="self-title">自己部署：双击对应文件</h2>
-        <p>部署助手一次只问一个问题。正式发布前会显示摘要，输入“开始部署”才会执行。</p>
+        <h2 id="self-title">快速安装：双击对应文件</h2>
+        <p>未安装飞书 CLI 时会先显示官方安装命令；已经安装后，按照浏览器和向导提示完成少量登录、授权和选择即可。</p>
         <div class="actions">
-          <a class="button secondary" href="双击开始部署-Windows.bat">Windows 部署入口</a>
-          <a class="button secondary" href="双击开始部署-macOS.command">Mac 部署入口</a>
+          <a class="button" href="双击开始部署-Windows.bat">Windows 快速安装</a>
+          <a class="button" href="双击开始部署-macOS.command">Mac 快速安装</a>
         </div>
       </section>
 
       <section class="prepare" aria-labelledby="prepare-title">
-        <h2 id="prepare-title">开始前只需准备</h2>
+        <h2 id="prepare-title">开始前准备</h2>
         <ol>
-          <li>能创建企业自建应用的飞书账号。</li>
-          <li>能创建全栈应用的妙搭账号。</li>
-          <li>接收日程的飞书群、人员和日历。</li>
+          <li>安装并启动飞书 CLI；未安装时，双击入口会先提示安装方法。</li>
+          <li>一个能够配置企业自建应用和使用妙搭的飞书账号。</li>
+          <li>一个目标群和一份当前用户可以编辑的日历。</li>
         </ol>
       </section>
 
-      <p class="safe">安全说明：这个页面不收集任何信息。App Secret、Verification Token 和 Encrypt Key 只在部署时临时使用，不会写入源码、说明文件或部署报告。详细说明见 <code>README.md</code>。</p>
+      <section class="choice" aria-labelledby="codex-title">
+        <h2 id="codex-title">需要协助时交给 Codex</h2>
+        <p>把整个解压文件夹拖进 Codex，再发送下面文件中的一句话。Codex 会沿用同一套自动发现和安全部署流程。</p>
+        <div class="actions">
+          <a class="button secondary" href="给Codex的一句话.txt">打开给 Codex 的一句话</a>
+        </div>
+      </section>
+
+      <p class="safe">安全说明：这个页面不收集任何信息。密钥只在部署时临时使用，不会写入源码、说明文件或部署报告。飞书登录、授权和应用发布仍由账号本人确认。详细说明见 <code>README.md</code>。</p>
     </main>
   </body>
 </html>

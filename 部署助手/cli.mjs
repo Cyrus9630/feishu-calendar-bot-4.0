@@ -5,7 +5,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 
-import { conciseError, validateValue } from './lib/core.mjs';
+import { conciseError, selectNumberedItem, validateValue } from './lib/core.mjs';
+import { discoverTargetsWithAuthorization, ensureLarkReady } from './lib/discovery.mjs';
 import {
   copyShareSource,
   createMiaodaApp,
@@ -15,7 +16,7 @@ import {
   setOnlineEnvironment,
 } from './lib/deploy.mjs';
 import { queryBotOpenId } from './lib/feishu.mjs';
-import { commandAvailable, runCommand } from './lib/process.mjs';
+import { commandAvailable, openExternal, runCommand } from './lib/process.mjs';
 
 const helperRoot = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(helperRoot, '..');
@@ -90,6 +91,22 @@ async function askValidated(key, prompt, { secret = false, optional = false } = 
   }
 }
 
+function showOptions(items) {
+  for (const [index, item] of items.entries()) {
+    info(`${index + 1}. ${item.name}（${item.detail}）`);
+  }
+}
+
+async function askNumberedItem(items, prompt) {
+  for (;;) {
+    try {
+      return selectNumberedItem(items, await askLine(prompt));
+    } catch (error) {
+      info(`请检查：${conciseError(error)}`);
+    }
+  }
+}
+
 export async function preflight({ runner = runCommand } = {}) {
   const major = Number.parseInt(process.versions.node.split('.')[0], 10);
   const node = major >= 22;
@@ -98,15 +115,6 @@ export async function preflight({ runner = runCommand } = {}) {
     commandAvailable('lark-cli', runner),
   ]);
   return { node, nodeVersion: process.versions.node, git, larkCli };
-}
-
-async function verifyLarkLogin(runner = runCommand) {
-  const result = await runner('lark-cli', ['auth', 'status', '--json', '--verify'], {
-    allowFailure: true,
-  });
-  if (result.code !== 0) {
-    throw new Error('lark-cli 尚未登录。请先运行 lark-cli auth config init 完成登录，再重试。');
-  }
 }
 
 function newProjectDestination() {
@@ -137,9 +145,9 @@ function reportText({ appId, destination, onlineUrl }) {
 
 export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {}) {
   heading('飞书日程机器人部署助手');
-  info('一次只问一个问题。输入 ? 可安全退出；秘密不会保存到文件或日志。');
+  info('飞书 CLI 准备好后，其余步骤由向导自动完成。秘密不会保存到文件或日志。');
 
-  heading('1 / 5  检查电脑');
+  heading('1 / 6  检查飞书 CLI');
   const checks = await preflight({ runner });
   if (!checks.node || !checks.git || !checks.larkCli) {
     const missing = [
@@ -149,13 +157,36 @@ export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {})
     ].filter(Boolean);
     throw new Error(`请先安装：${missing.join('、')}。详细方法见 README.md。`);
   }
-  await verifyLarkLogin(runner);
-  info('电脑和妙搭登录状态正常。');
+  await ensureLarkReady({ runner });
+  info('飞书 CLI 配置和用户授权正常。');
 
-  heading('2 / 5  准备飞书应用');
-  info('请打开 https://open.feishu.cn/app 创建企业自建应用，并启用“机器人”能力。');
-  info('不知道群、人员或日历 ID 时输入 ?，再把本文件夹交给 Codex 协助。');
-  const FEISHU_APP_ID = await askValidated('FEISHU_APP_ID', '飞书 App ID（cli_ 开头）：');
+  heading('2 / 6  选择群聊和日历');
+  info('正在读取当前飞书用户、最近群聊和可写日历...');
+  const targets = await discoverTargetsWithAuthorization({ runner });
+  const { appId: FEISHU_APP_ID, userOpenId: TARGET_OPEN_ID } = targets.identity;
+  if (targets.chats.length === 0) {
+    throw new Error('没有发现可用群聊。请确认飞书 CLI 已获得 im 权限，并且当前用户已经加入目标群。');
+  }
+  if (targets.calendars.length === 0) {
+    throw new Error('没有发现可写日历。请确认飞书 CLI 已获得 calendar 权限，并准备一份 owner 或 writer 权限的日历。');
+  }
+  info('请选择机器人工作的群聊：');
+  showOptions(targets.chats);
+  const selectedChat = await askNumberedItem(targets.chats, `输入群聊编号（1-${targets.chats.length}）：`);
+  info('请选择机器人读写的日历：');
+  showOptions(targets.calendars);
+  const selectedCalendar = await askNumberedItem(
+    targets.calendars,
+    `输入日历编号（1-${targets.calendars.length}）：`,
+  );
+  const CHAT_ID = selectedChat.id;
+  const TARGET_CALENDAR_ID = selectedCalendar.id;
+
+  heading('3 / 6  准备飞书应用密钥');
+  const developerUrl = `https://open.feishu.cn/app/${FEISHU_APP_ID}`;
+  info(`当前飞书应用：${FEISHU_APP_ID}`);
+  info('正在打开飞书开放平台。请确认已启用“机器人”能力，并从“凭证与基础信息”复制密钥。');
+  if (!await openExternal(developerUrl, runner)) info(`请在浏览器打开：${developerUrl}`);
   const FEISHU_APP_SECRET = await askValidated('FEISHU_APP_SECRET', '飞书 App Secret（输入时隐藏）：', { secret: true });
   const FEISHU_VERIFICATION_TOKEN = await askValidated(
     'FEISHU_VERIFICATION_TOKEN',
@@ -167,10 +198,6 @@ export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {})
     '事件 Encrypt Key（未启用加密可直接回车）：',
     { secret: true, optional: true },
   );
-  const CHAT_ID = await askValidated('CHAT_ID', '目标群 chat_id（oc_ 开头）：');
-  const TARGET_OPEN_ID = await askValidated('TARGET_OPEN_ID', '目标用户 open_id（ou_ 开头）：');
-  const TARGET_CALENDAR_ID = await askValidated('TARGET_CALENDAR_ID', '目标日历 ID：');
-
   info('正在校验飞书凭据并读取机器人 open_id...');
   const BOT_OPEN_ID = await queryBotOpenId({
     appId: FEISHU_APP_ID,
@@ -178,11 +205,11 @@ export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {})
     fetchImpl,
   });
 
-  heading('3 / 5  确认部署范围');
+  heading('4 / 6  确认部署范围');
   info(`飞书应用：${FEISHU_APP_ID}`);
-  info(`目标群：${CHAT_ID}`);
-  info(`目标用户：${TARGET_OPEN_ID}`);
-  info(`目标日历：${TARGET_CALENDAR_ID}`);
+  info(`目标群：${selectedChat.name}`);
+  info(`当前用户：${TARGET_OPEN_ID}`);
+  info(`目标日历：${selectedCalendar.name}`);
   info(`机器人：${BOT_OPEN_ID}`);
   info('App Secret 和事件密钥已收到，但不会显示或写入文件。');
   const confirmation = (await askLine('确认无误请输入“开始部署”：')).trim();
@@ -191,7 +218,7 @@ export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {})
   }
 
   const secrets = [FEISHU_APP_SECRET, FEISHU_VERIFICATION_TOKEN, FEISHU_ENCRYPT_KEY].filter(Boolean);
-  heading('4 / 5  创建并发布妙搭应用');
+  heading('5 / 6  创建并发布妙搭应用');
   info('正在创建新的妙搭应用...');
   const { appId } = await createMiaodaApp({ runner });
   const destination = newProjectDestination();
@@ -221,10 +248,12 @@ export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {})
   info('正在发布，通常需要约 2 分钟...');
   const release = await publishAndWait({ runner, appId });
 
-  heading('5 / 5  部署完成');
+  heading('6 / 6  完成飞书设置');
   const callbackUrl = `${release.onlineUrl.replace(/\/$/, '')}/api/feishu/event`;
   info(`线上地址：${release.onlineUrl}`);
   info(`飞书事件回调地址：${callbackUrl}`);
+  info('正在打开飞书开放平台。请按部署结果文件完成权限、事件、版本发布、机器人入群和日历共享。');
+  if (!await openExternal(developerUrl, runner)) info(`请在浏览器打开：${developerUrl}`);
   const reportName = `部署结果-不含密钥-${new Date().toISOString().slice(0, 10)}.md`;
   const reportPath = join(packageRoot, reportName);
   await writeFile(reportPath, reportText({ appId, destination, onlineUrl: release.onlineUrl }), {
@@ -249,14 +278,15 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--help')) {
     info('用法：双击包根目录的 Windows 或 macOS 部署入口。');
-    info('输入 ? 可安全退出；秘密不会保存。也可以先打开 先打开我.html。');
+    info('安装者只需先准备飞书 CLI；向导会自动发现当前用户、群聊和可写日历。');
+    info('秘密不会保存。也可以先打开 先打开我.html。');
     return;
   }
   if (args.includes('--check')) {
     const result = await preflight();
     if (args.includes('--json')) info(JSON.stringify(result));
     else info(`Node.js: ${result.node ? '正常' : '需要 22+'}；Git: ${result.git ? '正常' : '缺失'}；lark-cli: ${result.larkCli ? '正常' : '缺失'}`);
-    if (!result.node) process.exitCode = 1;
+    if (!result.node || !result.git || !result.larkCli) process.exitCode = 1;
     return;
   }
   await runWizard();

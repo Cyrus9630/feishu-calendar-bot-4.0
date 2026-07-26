@@ -34,13 +34,31 @@ Do not commit App Secrets, access tokens, Verification Tokens, Encrypt Keys, rea
 
 ## Requirements
 
-- A Feishu custom app with bot, messaging, and calendar permissions
-- A Miaoda full-stack application
-- Node.js 22 or later and npm 10 or later
+- A Feishu account allowed to configure a custom app and use Miaoda
 - A current authenticated `lark-cli`
+- A target group chat
 - A calendar shared with the bot or app identity with writer access
 
-## Build and verify
+## Quick installation
+
+The only software users need to prepare explicitly is the current [Feishu/Lark CLI](https://github.com/larksuite/cli). If it is not installed, run the official installer:
+
+```bash
+npx @larksuite/cli@latest install
+```
+
+Download and extract the latest 4.0 release, then run:
+
+- Windows: `双击开始部署-Windows.bat`
+- macOS: `双击开始部署-macOS.command`
+
+The installer checks the CLI first. It then guides the user through Feishu configuration and login in the browser, detects the current user, lists available group chats and writable calendars for numbered selection, creates a new Miaoda application, writes online environment variables, uploads the source, and waits for the same release to finish.
+
+Feishu requires the account owner to approve login, app permissions, event subscriptions, app publication, bot membership, and calendar sharing. The installer opens the relevant Feishu page and reduces these actions to the necessary confirmations. Because the public CLI deliberately masks stored secrets, the user must still paste the App Secret and Verification Token into hidden prompts; Encrypt Key is requested only when event encryption is enabled. Group IDs, user open IDs, calendar IDs, and Miaoda app IDs are discovered or created automatically.
+
+The launchers also check the Node.js and Git runtime needed by the deployment process. A normal CLI installation environment already includes Node.js. On Windows, the launcher can invoke the system package source when Git is missing; on macOS, it opens the Apple command-line tools installer.
+
+## Manual build and verification
 
 ```bash
 npm ci

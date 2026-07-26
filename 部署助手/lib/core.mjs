@@ -61,7 +61,7 @@ export function conciseError(error, secrets = []) {
   return redactSecrets(message, secrets).replace(/\s+/g, ' ').trim().slice(0, 500);
 }
 
-function parseJsonOutput(output, label) {
+export function parseJsonOutput(output, label) {
   const text = String(output ?? '').trim();
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -71,6 +71,18 @@ function parseJsonOutput(output, label) {
   } catch {
     throw new Error(`${label}返回的 JSON 无法解析。`);
   }
+}
+
+export function selectNumberedItem(items, rawValue) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('没有可选择的项目。');
+  }
+  const raw = String(rawValue ?? '').trim();
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1 || value > items.length) {
+    throw new Error(`请输入 1 到 ${items.length} 之间的编号。`);
+  }
+  return items[value - 1];
 }
 
 export function parseCreateApp(output) {

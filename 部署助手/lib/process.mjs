@@ -41,9 +41,48 @@ export function runCommand(command, args = [], options = {}) {
   });
 }
 
+export function runInteractive(command, args = [], { cwd, env = process.env } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      shell: false,
+      stdio: 'inherit',
+      windowsHide: false,
+    });
+    child.on('error', (error) => reject(new Error(conciseError(error))));
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ code: 0 });
+        return;
+      }
+      reject(new Error(`${command} 未完成，请按上方提示重试。`));
+    });
+  });
+}
+
 export async function commandAvailable(command, runner = runCommand) {
   try {
     const result = await runner(command, ['--version'], { allowFailure: true });
+    return result.code === 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function openExternal(url, runner = runCommand) {
+  const target = String(url ?? '');
+  if (!/^https:\/\/[^\s]+$/i.test(target)) return false;
+  const command = process.platform === 'win32'
+    ? 'cmd'
+    : process.platform === 'darwin'
+      ? 'open'
+      : 'xdg-open';
+  const args = process.platform === 'win32'
+    ? ['/d', '/s', '/c', 'start', '', target]
+    : [target];
+  try {
+    const result = await runner(command, args, { allowFailure: true });
     return result.code === 0;
   } catch {
     return false;

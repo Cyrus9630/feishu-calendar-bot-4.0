@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 
 import { conciseError, validateValue } from './lib/core.mjs';
@@ -262,7 +262,9 @@ async function main() {
 }
 
 const isMain =
-  process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+  process.argv[1] &&
+  fileURLToPath(import.meta.url).normalize('NFC') ===
+    resolve(process.argv[1]).normalize('NFC');
 
 if (isMain) {
   main().catch((error) => {

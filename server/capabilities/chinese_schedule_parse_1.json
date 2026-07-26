@@ -1,0 +1,78 @@
+{
+  "id": "chinese_schedule_parse_1",
+  "pluginKey": "@official-plugins/ai-text-to-json",
+  "pluginVersion": "1.0.23",
+  "name": "中文日程解析",
+  "description": "从用户@机器人的消息文本中提取创建、修改或取消日程所需的结构化字段。",
+  "icon": "",
+  "paramsSchema": {
+    "type": "object",
+    "properties": {
+      "schedule_text": {
+        "type": "string",
+        "description": "包含日程信息的中文自然语言文本"
+      }
+    },
+    "required": [
+      "schedule_text"
+    ]
+  },
+  "formValue": {
+    "prompt": "你是一位专业的日程指令信息提取专家。\n\n请从以下文本中提取日程信息：\n{{input.schedule_text}}\n\n提取规则：\n1. action：创建或添加填create，修改或调整填update，取消或删除填cancel，询问用法填help；无法判断时默认create\n2. title：只填写事项本身，不包含日期、时间、时长、颜色、地点或重复周期；例如“7月28日每三个月交房租”的 title 只填“交房租”；无法确定事项时填空字符串\n3. date：保留原文日期表达，如明天、17号、7月20日、27年5月7日、下周一；未写日期填空字符串\n4. start_time：保留开始时间原文；只写上午、下午、晚上时也原样填写；未写填空字符串\n5. end_time：只有明确结束时间时填写；未写填空字符串\n6. duration_minutes：明确时长换算为分钟；未写填0\n7. color：只保留颜色表达，如黄色、标黄；未写填空字符串\n8. location：只保留地点；未写填空字符串\n9. reminder_minutes：明确提醒换算为开始前分钟数，多个用英文逗号分隔；未写填空字符串\n10. 输入可能是系统从批量指令中拆出的一项，只解析当前这一项，不合并或补写其他事项\n11. 重复周期仅按原文理解，不得自行补充首次日期、年份、次数或结束日期\n\n所有字段必须严格依据原文，不得补充原文没有的信息。",
+    "jsonStructure": [
+      {
+        "name": "action",
+        "paramType": "String",
+        "paramDescription": "操作类型：create、update、cancel、help"
+      },
+      {
+        "paramType": "String",
+        "paramDescription": "日程标题，准确概括日程的核心内容",
+        "name": "title"
+      },
+      {
+        "name": "date",
+        "paramType": "String",
+        "paramDescription": "日期信息，保留原文中的日期表达方式，如明天、7月10日、下周一等"
+      },
+      {
+        "paramDescription": "开始时间，保留原文表达，仅有上午、下午、晚上时也保留",
+        "name": "start_time",
+        "paramType": "String"
+      },
+      {
+        "paramDescription": "明确的结束时间，没有时填空字符串",
+        "name": "end_time",
+        "paramType": "String"
+      },
+      {
+        "name": "duration_minutes",
+        "paramType": "Number",
+        "paramDescription": "日程时长，转换为分钟数，没有明确时长时填0"
+      },
+      {
+        "name": "color",
+        "paramType": "String",
+        "paramDescription": "颜色原文，没有时填空字符串"
+      },
+      {
+        "name": "location",
+        "paramType": "String",
+        "paramDescription": "地点原文，没有时填空字符串"
+      },
+      {
+        "name": "reminder_minutes",
+        "paramType": "String",
+        "paramDescription": "提醒分钟数，多个用英文逗号分隔，没有时填空字符串"
+      }
+    ],
+    "modelID": "87",
+    "modelParams": {
+      "maxTokens": 8192,
+      "temperature": 0.1
+    }
+  },
+  "createdAt": 0,
+  "updatedAt": 0,
+  "createdBy": 0
+}

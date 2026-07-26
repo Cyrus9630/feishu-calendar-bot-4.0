@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>飞书日程机器人部署入口</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa;
+        --surface: #ffffff;
+        --ink: #172033;
+        --muted: #526079;
+        --line: #d9dfeb;
+        --primary: #245bdb;
+        --primary-hover: #1949b8;
+        --soft: #eaf0ff;
+        --success: #176b4d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        line-height: 1.65;
+      }
+      main {
+        width: min(760px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 56px 0 72px;
+      }
+      header { margin-bottom: 32px; }
+      .mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        color: var(--success);
+        font-size: 14px;
+        font-weight: 650;
+      }
+      .mark::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 36px;
+        line-height: 1.2;
+        letter-spacing: -0.025em;
+        text-wrap: balance;
+      }
+      .lead {
+        max-width: 64ch;
+        margin: 0;
+        color: var(--muted);
+        font-size: 17px;
+      }
+      .choice {
+        padding: 24px 0;
+        border-top: 1px solid var(--line);
+      }
+      .choice:last-of-type { border-bottom: 1px solid var(--line); }
+      .choice h2 {
+        margin: 0 0 8px;
+        font-size: 21px;
+        line-height: 1.35;
+      }
+      .choice p {
+        max-width: 68ch;
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+      .button {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 17px;
+        border-radius: 10px;
+        background: var(--primary);
+        color: #ffffff;
+        font-weight: 650;
+        text-decoration: none;
+        transition: background-color 180ms ease-out, transform 180ms ease-out;
+      }
+      .button:hover { background: var(--primary-hover); }
+      .button:active { transform: translateY(1px); }
+      .button:focus-visible { outline: 3px solid #8db0ff; outline-offset: 3px; }
+      .button.secondary {
+        background: var(--soft);
+        color: #183e96;
+      }
+      .button.secondary:hover { background: #dce7ff; }
+      .prepare {
+        margin-top: 32px;
+        padding: 22px;
+        border-radius: 14px;
+        background: var(--surface);
+      }
+      .prepare h2 { margin: 0 0 12px; font-size: 19px; }
+      .prepare ol { margin: 0; padding-left: 24px; }
+      .prepare li + li { margin-top: 7px; }
+      .safe {
+        margin: 22px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      code {
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: #e8ecf3;
+        color: #283650;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.92em;
+      }
+      @media (max-width: 560px) {
+        main { padding-top: 36px; }
+        h1 { font-size: 30px; }
+        .button { width: 100%; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .button { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="mark">源码已脱敏，可以独立部署</div>
+        <h1>飞书日程机器人</h1>
+        <p class="lead">不用改代码。推荐把这个文件夹交给 Codex；也可以双击启动部署助手，按照中文提示填写你自己的飞书信息。</p>
+      </header>
+
+      <section class="choice" aria-labelledby="codex-title">
+        <h2 id="codex-title">推荐：交给 Codex 帮我部署</h2>
+        <p>把整个解压后的文件夹拖进 Codex，再把下面这句话发给它。Codex 会检查环境、引导你填写信息并完成妙搭发布。</p>
+        <div class="actions">
+          <a class="button" href="给Codex的一句话.txt">打开给 Codex 的一句话</a>
+        </div>
+      </section>
+
+      <section class="choice" aria-labelledby="self-title">
+        <h2 id="self-title">自己部署：双击对应文件</h2>
+        <p>部署助手一次只问一个问题。正式发布前会显示摘要，输入“开始部署”才会执行。</p>
+        <div class="actions">
+          <a class="button secondary" href="双击开始部署-Windows.bat">Windows 部署入口</a>
+          <a class="button secondary" href="双击开始部署-macOS.command">Mac 部署入口</a>
+        </div>
+      </section>
+
+      <section class="prepare" aria-labelledby="prepare-title">
+        <h2 id="prepare-title">开始前只需准备</h2>
+        <ol>
+          <li>能创建企业自建应用的飞书账号。</li>
+          <li>能创建全栈应用的妙搭账号。</li>
+          <li>接收日程的飞书群、人员和日历。</li>
+        </ol>
+      </section>
+
+      <p class="safe">安全说明：这个页面不收集任何信息。App Secret、Verification Token 和 Encrypt Key 只在部署时临时使用，不会写入源码、说明文件或部署报告。详细说明见 <code>README.md</code>。</p>
+    </main>
+  </body>
+</html>

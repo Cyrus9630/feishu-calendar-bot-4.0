@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@server/*": ["server/*"],
+      "@client/*": ["client/*"],
+      "@shared/*": ["shared/*"],
+      "@/*": ["client/src/*"],
+      "@lark-apaas/client-toolkit/logger": [
+        "node_modules/@lark-apaas/client-toolkit/lib/apis/logger.d.ts"
+      ],
+      "@lark-apaas/client-toolkit/utils/*": [
+        "node_modules/@lark-apaas/client-toolkit/lib/apis/utils/*"
+      ]
+    }
+  },
+  "include": ["server/**/*", "client/**/*", "shared/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.e2e-spec.ts"]
+}

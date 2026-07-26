@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -261,10 +262,17 @@ async function main() {
   await runWizard();
 }
 
+function canonicalPath(value) {
+  try {
+    return realpathSync(value).normalize('NFC');
+  } catch {
+    return resolve(value).normalize('NFC');
+  }
+}
+
 const isMain =
   process.argv[1] &&
-  fileURLToPath(import.meta.url).normalize('NFC') ===
-    resolve(process.argv[1]).normalize('NFC');
+  canonicalPath(fileURLToPath(import.meta.url)) === canonicalPath(process.argv[1]);
 
 if (isMain) {
   main().catch((error) => {

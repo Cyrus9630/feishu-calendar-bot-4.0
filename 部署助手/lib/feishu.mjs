@@ -1,6 +1,41 @@
+import { request } from 'node:https';
+
 import { conciseError } from './core.mjs';
 
 const baseUrl = 'https://open.feishu.cn';
+
+function nodeFetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const req = request(
+      url,
+      {
+        method: options.method ?? 'GET',
+        headers: options.headers ?? {},
+      },
+      (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('end', () => {
+          resolve({
+            ok: response.statusCode >= 200 && response.statusCode < 300,
+            status: response.statusCode,
+            json: async () => JSON.parse(body),
+          });
+        });
+      },
+    );
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
+  });
+}
+
+const defaultFetch = typeof globalThis.fetch === 'function'
+  ? globalThis.fetch.bind(globalThis)
+  : nodeFetch;
 
 async function readJson(response, label, secrets) {
   let value;
@@ -16,7 +51,7 @@ async function readJson(response, label, secrets) {
   return value;
 }
 
-export async function queryBotOpenId({ appId, appSecret, fetchImpl = fetch }) {
+export async function queryBotOpenId({ appId, appSecret, fetchImpl = defaultFetch }) {
   const secrets = [appSecret];
   const tokenResponse = await fetchImpl(
     `${baseUrl}/open-apis/auth/v3/tenant_access_token/internal`,

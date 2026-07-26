@@ -3,7 +3,7 @@ import { realpathSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createInterface } from 'node:readline/promises';
+import { createInterface } from 'node:readline';
 
 import { conciseError, selectNumberedItem, validateValue } from './lib/core.mjs';
 import { discoverTargetsWithAuthorization, ensureLarkReady } from './lib/discovery.mjs';
@@ -32,11 +32,12 @@ function info(text) {
 
 async function askLine(prompt) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    return await rl.question(prompt);
-  } finally {
-    rl.close();
-  }
+  return new Promise((resolvePromise) => {
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolvePromise(answer);
+    });
+  });
 }
 
 async function askSecret(prompt, { optional = false } = {}) {
@@ -109,7 +110,7 @@ async function askNumberedItem(items, prompt) {
 
 export async function preflight({ runner = runCommand } = {}) {
   const major = Number.parseInt(process.versions.node.split('.')[0], 10);
-  const node = major >= 22;
+  const node = major >= 16;
   const [git, larkCli] = await Promise.all([
     commandAvailable('git', runner),
     commandAvailable('lark-cli', runner),
@@ -143,7 +144,7 @@ function reportText({ appId, destination, onlineUrl }) {
 `;
 }
 
-export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {}) {
+export async function runWizard({ runner = runCommand, fetchImpl } = {}) {
   heading('飞书日程机器人部署助手');
   info('飞书 CLI 准备好后，其余步骤由向导自动完成。秘密不会保存到文件或日志。');
 
@@ -151,7 +152,7 @@ export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {})
   const checks = await preflight({ runner });
   if (!checks.node || !checks.git || !checks.larkCli) {
     const missing = [
-      !checks.node && 'Node.js 22 或更高版本',
+      !checks.node && '飞书 CLI 支持的 Node.js 16 或更高版本',
       !checks.git && 'Git',
       !checks.larkCli && 'lark-cli',
     ].filter(Boolean);
@@ -202,7 +203,7 @@ export async function runWizard({ runner = runCommand, fetchImpl = fetch } = {})
   const BOT_OPEN_ID = await queryBotOpenId({
     appId: FEISHU_APP_ID,
     appSecret: FEISHU_APP_SECRET,
-    fetchImpl,
+    ...(fetchImpl ? { fetchImpl } : {}),
   });
 
   heading('4 / 6  确认部署范围');
@@ -285,7 +286,7 @@ async function main() {
   if (args.includes('--check')) {
     const result = await preflight();
     if (args.includes('--json')) info(JSON.stringify(result));
-    else info(`Node.js: ${result.node ? '正常' : '需要 22+'}；Git: ${result.git ? '正常' : '缺失'}；lark-cli: ${result.larkCli ? '正常' : '缺失'}`);
+    else info(`Node.js: ${result.node ? '正常' : '需要 16+'}；Git: ${result.git ? '正常' : '缺失'}；lark-cli: ${result.larkCli ? '正常' : '缺失'}`);
     if (!result.node || !result.git || !result.larkCli) process.exitCode = 1;
     return;
   }

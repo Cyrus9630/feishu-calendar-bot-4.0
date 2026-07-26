@@ -1,12 +1,13 @@
 import {
   existsSync,
+  realpathSync,
   readdirSync,
   readFileSync,
   statSync,
 } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { basename, join, relative, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import {
   attributionFiles,
@@ -272,8 +273,17 @@ export function verifyPackage(packageRoot, { secretSourceRoot } = {}) {
   };
 }
 
+function canonicalPath(value) {
+  try {
+    return realpathSync(value).normalize('NFC');
+  } catch {
+    return resolve(value).normalize('NFC');
+  }
+}
+
 const isMain =
-  process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+  process.argv[1] &&
+  canonicalPath(fileURLToPath(import.meta.url)) === canonicalPath(process.argv[1]);
 
 if (isMain) {
   const result = verifyPackage(process.argv[2] ?? '.');

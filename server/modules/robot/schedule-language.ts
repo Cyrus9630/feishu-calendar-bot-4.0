@@ -1,3 +1,8 @@
+import {
+  normalizeDateDigits,
+  normalizeScheduleDateNotation,
+} from './schedule-date-notation';
+
 export interface SpokenScheduleNormalization {
   text: string;
   durationMinutes?: number;
@@ -107,7 +112,7 @@ function normalizeRelative(value: string) {
 }
 
 function normalizeDateNumbers(value: string) {
-  return value
+  return normalizeScheduleDateNotation(value)
     .replace(
       /([零〇一二两三四五六七八九十]{2,4})年/g,
       (_match, number: string) => `${chineseNumber(number)}年`,
@@ -214,7 +219,9 @@ export function normalizeSpokenSchedule(
   source: string,
   options: SpokenScheduleOptions = {},
 ): SpokenScheduleNormalization {
-  let text = source.trim().replace(/[。！!]+$/, '');
+  let text = normalizeDateDigits(source)
+    .trim()
+    .replace(/[。！!]+$/, '');
   if (!text) throw new Error('日程指令不能为空');
   assertUnambiguous(text);
   text = normalizeCancellation(text);

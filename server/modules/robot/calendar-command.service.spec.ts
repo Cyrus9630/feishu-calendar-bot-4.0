@@ -84,6 +84,78 @@ describe('CalendarCommandService', () => {
     };
   }
 
+  it.each(['10.8下午 复查 黄色', '十月十七 体检黄色'])(
+    '简写日期走创建路径：%s',
+    async (text) => {
+      const day = text.startsWith('10.8') ? '08' : '17';
+      const { service, actions } = setup({
+        action: 'create',
+        title: '复查',
+        date: text.startsWith('10.8') ? '10.8' : '10月十七',
+        start_time: '',
+        color: '黄色',
+      });
+      await service.handleText(
+        { ...input, text },
+        new Date('2026-10-03T00:00:00Z'),
+      );
+      expect(actions.executeDirect).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          after: expect.objectContaining({
+            startTime: `2026-10-${day}T${day === '08' ? '06' : '02'}:00:00.000Z`,
+            color: 0xffc60a,
+          }),
+        }),
+      );
+    },
+  );
+  it.each(['10.8的安排', '十月十七的安排', '10.1的安排'])(
+    '短句查询不经过 AI 创建：%s',
+    async (text) => {
+      const { service, queries, actions, parseCall } = setup({
+        action: 'create',
+        title: '误创建',
+      });
+      await service.handleText(
+        { ...input, text },
+        new Date('2026-10-03T00:00:00Z'),
+      );
+      expect(queries.reply).toHaveBeenCalledTimes(1);
+      expect(parseCall).not.toHaveBeenCalled();
+      expect(actions.executeDirect).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['10.8上午复查', '09:00', '02:00'],
+    ['10.8下午复查', '14:00', '06:00'],
+    ['10.8晚上复查', '19:00', '11:00'],
+    ['10.8下午3点40分复查', '15:40', '07:40'],
+  ])(
+    '原文时段及钟点优先，不被 AI 改写丢失：%s',
+    async (text, parsedTime, utcTime) => {
+      const { service, actions } = setup({
+        action: 'create',
+        title: '复查',
+        date: '10.8',
+        start_time: parsedTime,
+      });
+      await service.handleText(
+        { ...input, text },
+        new Date('2026-10-03T00:00:00Z'),
+      );
+      expect(actions.executeDirect).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          after: expect.objectContaining({
+            startTime: `2026-10-08T${utcTime}:00.000Z`,
+          }),
+        }),
+      );
+    },
+  );
+
   it('创建黄色体检日程并返回完整结果', async () => {
     const { service, actions } = setup({
       action: 'create',
@@ -1217,7 +1289,12 @@ describe('CalendarCommandService', () => {
       pending,
     );
     await service.selectUpdateCandidate(
-      { ...input, messageId: 'om_repeat', parentId: 'om_candidates', text: '2' },
+      {
+        ...input,
+        messageId: 'om_repeat',
+        parentId: 'om_candidates',
+        text: '2',
+      },
       pending,
     );
 

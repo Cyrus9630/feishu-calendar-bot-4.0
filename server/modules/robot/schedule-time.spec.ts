@@ -9,6 +9,34 @@ import {
 
 describe('schedule-time', () => {
   const reference = new Date('2026-07-14T05:00:00.000Z');
+  it.each([
+    '十月一日',
+    '十月一',
+    '10.1',
+    '１０．１',
+    '10 / 1',
+    '10-1',
+    '10月一日',
+  ])('日期解析与创建共享格式：%s', (text) => {
+    expect(resolveScheduleDate(text, reference).toISOString()).toBe(
+      '2026-09-30T16:00:00.000Z',
+    );
+    expect(
+      computeScheduleRange(text, '下午', 60, reference).startTime.toISOString(),
+    ).toBe('2026-10-01T06:00:00.000Z');
+    expect(findScheduleDateExpression(`${text}下午复查`)?.text).toBe(text);
+  });
+  it.each(['13.1', '10.32', '2.30', '十月三十二日', '27.2.29'])(
+    '无效日期不得自动滚动：%s',
+    (text) => {
+      expect(() => resolveScheduleDate(text, reference)).toThrow('日期无效');
+    },
+  );
+  it('两位年份的点号日期仍按 20xx 解析', () => {
+    expect(resolveScheduleDate('27.10.1', reference).toISOString()).toBe(
+      '2027-09-30T16:00:00.000Z',
+    );
+  });
 
   it('解析明天下午三点并默认持续 60 分钟', () => {
     const range = computeScheduleRange('明天', '下午3点', 0, reference);
@@ -75,7 +103,9 @@ describe('schedule-time', () => {
     ['本周五', '2026-07-16T16:00:00.000Z'],
     ['下周一', '2026-07-19T16:00:00.000Z'],
   ])('只解析日期表达 %s，不附加推测钟点', (dateText, expected) => {
-    expect(resolveScheduleDate(dateText, reference).toISOString()).toBe(expected);
+    expect(resolveScheduleDate(dateText, reference).toISOString()).toBe(
+      expected,
+    );
   });
 
   it('当天下午查询日期时不因 10:00 已经过期而失败', () => {
@@ -111,18 +141,18 @@ describe('schedule-time', () => {
     ['晚上7:30', '2026-07-17T11:30:00.000Z'],
   ])('把多种时间格式“%s”解析为同一时钟', (time, expected) => {
     expect(
-      computeScheduleRange('17号', time, '', 60, reference).startTime.toISOString(),
+      computeScheduleRange(
+        '17号',
+        time,
+        '',
+        60,
+        reference,
+      ).startTime.toISOString(),
     ).toBe(expected);
   });
 
   it('结束时间未重复时段词时继承开始时间的下午语义', () => {
-    const range = computeScheduleRange(
-      '17号',
-      '下午3点',
-      '4点',
-      0,
-      reference,
-    );
+    const range = computeScheduleRange('17号', '下午3点', '4点', 0, reference);
     expect(range.startTime.toISOString()).toBe('2026-07-17T07:00:00.000Z');
     expect(range.endTime.toISOString()).toBe('2026-07-17T08:00:00.000Z');
   });
@@ -147,28 +177,54 @@ describe('schedule-time', () => {
       ['2 个 月 后', '2026-09-14T02:00:00.000Z'],
     ])('%s 未写钟点时使用目标日 10:00', (dateText, expected) => {
       expect(
-        computeScheduleRange(dateText, '上午', '', 60, reference).startTime.toISOString(),
+        computeScheduleRange(
+          dateText,
+          '上午',
+          '',
+          60,
+          reference,
+        ).startTime.toISOString(),
       ).toBe(expected);
-      expect(findScheduleDateExpression(`创建${dateText}事项`)?.text).toBe(dateText);
+      expect(findScheduleDateExpression(`创建${dateText}事项`)?.text).toBe(
+        dateText,
+      );
     });
 
     it('相对天数可以继续指定具体钟点', () => {
       expect(
-        computeScheduleRange('十天后', '下午3点', '', 60, reference).startTime.toISOString(),
+        computeScheduleRange(
+          '十天后',
+          '下午3点',
+          '',
+          60,
+          reference,
+        ).startTime.toISOString(),
       ).toBe('2026-07-24T07:00:00.000Z');
     });
 
     it('相对小时从参考时刻增加并保留分钟', () => {
       const withMinutes = new Date('2026-07-14T05:37:42.789Z');
       expect(
-        computeScheduleRange('3个小时后', '上午', '', 60, withMinutes).startTime.toISOString(),
+        computeScheduleRange(
+          '3个小时后',
+          '上午',
+          '',
+          60,
+          withMinutes,
+        ).startTime.toISOString(),
       ).toBe('2026-07-14T08:37:00.000Z');
     });
 
     it('自然月换算时把月末收敛到目标月最后一天', () => {
       const januaryLastDay = new Date('2027-01-31T04:00:00.000Z');
       expect(
-        computeScheduleRange('一个月后', '上午', '', 60, januaryLastDay).startTime.toISOString(),
+        computeScheduleRange(
+          '一个月后',
+          '上午',
+          '',
+          60,
+          januaryLastDay,
+        ).startTime.toISOString(),
       ).toBe('2027-02-28T02:00:00.000Z');
     });
 

@@ -19,6 +19,7 @@ This release accepts text instructions only and ignores image messages.
 
 ## Main features
 
+- Chinese and mixed date notation such as `十月十七`, `10月十七`, `10.1`, `10/1`, `10-1`, full-width digits and internal spacing; `27.10.1` means October 1, 2027. Creation, updates, batches and explicit-date queries share the same notation rules.
 - Natural-language calendar creation, search, update, and cancellation
 - Batch events, recurring events, cross-day schedules, locations, colors, and reminders
 - Candidate selection, conflict warnings, and interactive confirmation cards
@@ -27,6 +28,8 @@ This release accepts text instructions only and ignores image messages.
 - Idempotent message and card processing, plus time-limited undo support
 
 ## Security and data boundary
+
+The current version is **4.0.6**. See the [change log](./CHANGELOG.md). Explicit past dates can be queried without silently moving them to the following year; past-date creation remains guarded.
 
 Each deployment must use its own Feishu custom app, group, user identity, and calendar. Credentials are supplied through local or Miaoda environment variables and are not included in this repository. The bot only accepts text messages from the configured user in the configured group and only accesses the calendar explicitly granted to it.
 

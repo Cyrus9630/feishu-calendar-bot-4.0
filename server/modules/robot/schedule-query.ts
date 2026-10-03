@@ -2,6 +2,10 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { EVENT_COLORS, type EventColorName } from './schedule-command';
+import {
+  findScheduleDateExpression,
+  resolveScheduleDate,
+} from './schedule-time';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -46,6 +50,16 @@ function mondayOfWeek(reference: Date) {
 }
 
 function hasQueryLanguage(text: string) {
+  const short = text
+    .replace(/\s+/g, '')
+    .match(/^(?:我的?|)(.+?)(?:的)?(?:安排|日程|事项)[？?]?$/);
+  if (short) {
+    const dateText = short[1].replace(/的$/, '');
+    const date = /(?:周|星期|礼拜)(?![一二三四五六日天1-7])/.test(dateText)
+      ? null
+      : findScheduleDateExpression(dateText);
+    if (date?.index === 0 && date.text.length === dateText.length) return true;
+  }
   return /(?:什么|哪些|哪几|有几|有没有|查询|查看|看看|列出).*(?:安排|日程|事项)|(?:安排|日程|事项).*(?:什么|哪些|哪几|有几|有没有|查询|查看|看看)|^(?:今天|明天|后天|本周|这周|下周|本月|这个月|下个月)(?:的)?(?:安排|日程|事项)?[？?]?$/i.test(
     text.trim(),
   );
@@ -56,6 +70,12 @@ export function parseScheduleQuery(
   reference = new Date(),
 ): ScheduleQuery | null {
   const value = text.trim().replace(/[？?。！!]+$/, '');
+  if (
+    /(?:修改|删除|取消|新增|创建|添加|改到|改为|改成|推迟|提前|撤销|暂停|恢复)/.test(
+      value,
+    )
+  )
+    return null;
   if (!hasQueryLanguage(value)) return null;
 
   const colorToken = value.match(COLOR_PATTERN)?.[1];
@@ -66,7 +86,25 @@ export function parseScheduleQuery(
   let end;
   let label: string;
 
-  if (/下周/.test(value)) {
+  const weekRange =
+    /(?:下下周|下下星期|下下礼拜|下周|下星期|下礼拜|本周|这周)(?![一二三四五六日天1-7])/.test(
+      value,
+    );
+  const date = weekRange ? null : findScheduleDateExpression(value);
+  if (date) {
+    start = dayjs(resolveScheduleDate(date.text, reference, true)).tz(ZONE);
+    end = start.add(1, 'day');
+    label =
+      (
+        {
+          今天: '今日日程',
+          今日: '今日日程',
+          明天: '明日日程',
+          明日: '明日日程',
+          后天: '后日日程',
+        } as Record<string, string>
+      )[date.text] || `${start.format('YYYY-MM-DD')}日程`;
+  } else if (/下周/.test(value)) {
     start = mondayOfWeek(reference).add(1, 'week');
     end = start.add(1, 'week');
     label = '下周日程';

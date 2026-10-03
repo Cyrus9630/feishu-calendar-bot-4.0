@@ -15,6 +15,7 @@ import {
 import {
   computeScheduleRange,
   findScheduleDateExpression,
+  findScheduleTimeExpressions,
   getShanghaiDayRangeDates,
   isRecognizedScheduleTime,
   resolveScheduleClock,
@@ -267,10 +268,7 @@ export class CalendarCommandService {
     pending: CalendarUpdateSelectionPending & { expiresAt: string },
     pendingMessageId = input.parentId || '',
   ): Promise<void> {
-    parseSingleUpdateSelection(
-      input.text,
-      pending.candidates.length,
-    );
+    parseSingleUpdateSelection(input.text, pending.candidates.length);
     const claim = await this.store.claimPending(pendingMessageId);
     if (
       claim.state !== 'claimed' ||
@@ -608,7 +606,7 @@ export class CalendarCommandService {
       isRecognizedScheduleTime(command.startText);
     const effectiveStartText = hasExplicitStart
       ? command.startText
-      : DEFAULT_CREATE_START_TEXT;
+      : this.sourceStartTime(input.text) || DEFAULT_CREATE_START_TEXT;
     const recurrence = parseScheduleRecurrence(
       input.text,
       reference,
@@ -1177,6 +1175,18 @@ export class CalendarCommandService {
       .call('textToJson', {
         schedule_text: text,
       })) as ChineseScheduleParseOneOutput;
+  }
+
+  private sourceStartTime(source: string): string | undefined {
+    const date = findScheduleDateExpression(source);
+    const withoutDate = date
+      ? source.slice(0, date.index) +
+        source.slice(date.index + date.text.length)
+      : source;
+    const times = findScheduleTimeExpressions(withoutDate);
+    return times.length === 1 && isRecognizedScheduleTime(times[0].text)
+      ? times[0].text
+      : undefined;
   }
 
   private normalize(

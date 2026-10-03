@@ -2,6 +2,14 @@ import { normalizeSpokenSchedule } from './schedule-language';
 
 describe('normalizeSpokenSchedule', () => {
   it.each([
+    ['10.8下午 去医院 黄色', '10月8日下午 去医院 黄色'],
+    ['十月十七 体检黄色。', '10月17日 体检黄色'],
+    ['时间 十 月 十七 下午九点', '时间 10月17日 下午9点'],
+    ['１０．８下午３：４０复查', '10月8日下午3：40复查'],
+  ])('日期简写共用规范：%s', (source, expected) => {
+    expect(normalizeSpokenSchedule(source).text).toBe(expected);
+  });
+  it.each([
     ['七月二十三号上午九点开庭', '7月23号上午9点开庭'],
     ['二十七年五月七日结婚纪念日', '27年5月7日结婚纪念日'],
     ['二〇二七年五月七日结婚纪念日', '2027年5月7日结婚纪念日'],

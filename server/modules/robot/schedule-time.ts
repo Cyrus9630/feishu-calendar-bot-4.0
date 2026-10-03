@@ -2,6 +2,10 @@ import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import {
+  findExplicitScheduleDate,
+  normalizeScheduleDateNotation,
+} from './schedule-date-notation';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -47,7 +51,6 @@ const DATE_EXPRESSION = new RegExp(
     '后天',
     RELATIVE_DATE_PATTERN,
     '(?:下下周|下下星期|下下礼拜|下周|下星期|下礼拜|本周|这周|本星期|这星期|本礼拜|这礼拜|周|星期|礼拜)[一二三四五六日天]',
-    '(?:(?:20\\d{2}|\\d{2})\\s*[年/-]\\s*)?\\d{1,2}\\s*[月/-]\\s*\\d{1,2}\\s*[日号]?',
     '\\d{1,2}\\s*[日号]',
   ].join('|'),
 );
@@ -105,7 +108,11 @@ const TIME_EXPRESSION = new RegExp(
 export function findScheduleDateExpression(
   text: string,
 ): ScheduleDateExpression | null {
-  if (/(?:半\s*(?:个\s*)?小时|(?:半|[零〇一二两三四五六七八九十\d]+)\s*(?:个\s*)?(?:分钟|分|秒钟|秒))\s*后/.test(text)) {
+  if (
+    /(?:半\s*(?:个\s*)?小时|(?:半|[零〇一二两三四五六七八九十\d]+)\s*(?:个\s*)?(?:分钟|分|秒钟|秒))\s*后/.test(
+      text,
+    )
+  ) {
     throw new Error('暂不支持分钟后或秒后，请使用小时后');
   }
   if (/(?:几|多少)\s*(?:个\s*)?(?:小时|钟头|月|天|日)\s*后/.test(text)) {
@@ -115,6 +122,9 @@ export function findScheduleDateExpression(
     throw new Error('“周末”无法确定具体日期，请明确周六或周日');
   }
   const match = text.match(DATE_EXPRESSION);
+  const explicitDate = findExplicitScheduleDate(text);
+  if (explicitDate && (!match || explicitDate.index <= (match.index ?? 0)))
+    return explicitDate;
   if (!match || match.index === undefined) {
     if (
       /(?:下下周|下下星期|下下礼拜|下周|下星期|下礼拜|本周|这周|本星期|这星期|本礼拜|这礼拜)(?![一二三四五六日天])/.test(
@@ -171,10 +181,7 @@ export function computeScheduleRange(
     if (endTimeText) {
       throw new Error('“小时后”请使用持续时长，不要再指定结束钟点');
     }
-    start = referenceTime
-      .add(relative.amount, 'hour')
-      .second(0)
-      .millisecond(0);
+    start = referenceTime.add(relative.amount, 'hour').second(0).millisecond(0);
     targetDate = start.startOf('day');
   } else {
     targetDate = parseDate(dateText, referenceTime);
@@ -217,9 +224,10 @@ export function computeScheduleRange(
 export function resolveScheduleDate(
   dateText: string,
   reference: Date = new Date(),
+  allowPast = false,
 ): Date {
   const referenceTime = dayjs(reference).tz(SHANGHAI_TIME_ZONE);
-  return parseDate(dateText, referenceTime).startOf('day').toDate();
+  return parseDate(dateText, referenceTime, allowPast).startOf('day').toDate();
 }
 
 export function isRecognizedScheduleTime(timeText: string): boolean {
@@ -244,9 +252,7 @@ export function getTomorrowEarlyRange(
   hour = 9,
   minute = 30,
 ): TomorrowEarlyRange {
-  const tomorrow = dayjs(reference)
-    .tz(SHANGHAI_TIME_ZONE)
-    .add(1, 'day');
+  const tomorrow = dayjs(reference).tz(SHANGHAI_TIME_ZONE).add(1, 'day');
   const endInclusive = tomorrow
     .hour(hour)
     .minute(minute)
@@ -269,12 +275,20 @@ export function getShanghaiDayRange(
   };
 }
 
-function parseDate(dateText: string, reference: Dayjs): Dayjs {
-  const normalized = dateText.replace(/\s+/g, '').trim();
+function parseDate(
+  dateText: string,
+  reference: Dayjs,
+  allowPast = false,
+): Dayjs {
+  const normalized = normalizeScheduleDateNotation(dateText)
+    .replace(/\s+/g, '')
+    .trim();
   if (!normalized) throw new Error('缺少日期信息');
 
-  if (normalized.includes('大后天')) return reference.add(3, 'day').startOf('day');
-  if (normalized.includes('后天')) return reference.add(2, 'day').startOf('day');
+  if (normalized.includes('大后天'))
+    return reference.add(3, 'day').startOf('day');
+  if (normalized.includes('后天'))
+    return reference.add(2, 'day').startOf('day');
   if (normalized.includes('明天') || normalized.includes('明日')) {
     return reference.add(1, 'day').startOf('day');
   }
@@ -284,7 +298,12 @@ function parseDate(dateText: string, reference: Dayjs): Dayjs {
 
   const relative = parseRelativeScheduleTime(normalized);
   if (relative) {
-    const unit = relative.unit === 'month' ? 'month' : relative.unit === 'hour' ? 'hour' : 'day';
+    const unit =
+      relative.unit === 'month'
+        ? 'month'
+        : relative.unit === 'hour'
+          ? 'hour'
+          : 'day';
     return reference.add(relative.amount, unit).startOf('day');
   }
 
@@ -293,14 +312,16 @@ function parseDate(dateText: string, reference: Dayjs): Dayjs {
   }
 
   const currentWeekday = (reference.day() + 6) % 7;
-  const currentMonday = reference.startOf('day').subtract(currentWeekday, 'day');
+  const currentMonday = reference
+    .startOf('day')
+    .subtract(currentWeekday, 'day');
 
   const thisWeek = normalized.match(
     /(?:本周|这周|本星期|这星期|本礼拜|这礼拜)([一二三四五六日天])/,
   );
   if (thisWeek) {
     const candidate = currentMonday.add(WEEKDAY_INDEX[thisWeek[1]], 'day');
-    if (candidate.endOf('day').isBefore(reference)) {
+    if (!allowPast && candidate.endOf('day').isBefore(reference)) {
       throw new Error('日期已经过去，请使用下周或提供明确日期');
     }
     return candidate;
@@ -329,9 +350,8 @@ function parseDate(dateText: string, reference: Dayjs): Dayjs {
   );
   if (bareWeekday) {
     const targetWeekday = WEEKDAY_INDEX[bareWeekday[1]];
-    const days = targetWeekday > currentWeekday
-      ? targetWeekday
-      : targetWeekday + 7;
+    const days =
+      targetWeekday > currentWeekday ? targetWeekday : targetWeekday + 7;
     return currentMonday.add(days, 'day').startOf('day');
   }
 
@@ -361,7 +381,11 @@ function parseDate(dateText: string, reference: Dayjs): Dayjs {
     ) {
       throw new Error('日期无效，请检查月份和日期');
     }
-    if (!suppliedYear && candidate.endOf('day').isBefore(reference)) {
+    if (
+      !allowPast &&
+      !suppliedYear &&
+      candidate.endOf('day').isBefore(reference)
+    ) {
       throw new Error('日期已经过去，请补充年份');
     }
     return candidate;
@@ -372,7 +396,7 @@ function parseDate(dateText: string, reference: Dayjs): Dayjs {
     const date = Number(dayOnly[1]);
     const candidate = reference.date(1).date(date).startOf('day');
     if (candidate.date() !== date) throw new Error('日期无效，请检查日期');
-    if (candidate.endOf('day').isBefore(reference)) {
+    if (!allowPast && candidate.endOf('day').isBefore(reference)) {
       throw new Error('日期已经过去，请补充月份');
     }
     return candidate;
@@ -388,7 +412,8 @@ function parseTime(
   const normalized = timeText.replace(/\s+/g, '').trim();
   if (!normalized) throw new Error('缺少时间信息');
 
-  if (normalized === '上午' || normalized === '早上') return { hour: 10, minute: 0 };
+  if (normalized === '上午' || normalized === '早上')
+    return { hour: 10, minute: 0 };
   if (normalized === '下午') return { hour: 14, minute: 0 };
   if (normalized === '晚上') return { hour: 19, minute: 0 };
 
@@ -463,9 +488,7 @@ function parseChineseNumber(value: string): number {
   throw new Error(`无法识别中文数字：${value}`);
 }
 
-function parseRelativeScheduleTime(
-  value: string,
-): RelativeScheduleTime | null {
+function parseRelativeScheduleTime(value: string): RelativeScheduleTime | null {
   const normalized = value.replace(/\s+/g, '').trim();
   const match = normalized.match(
     new RegExp(`(${RELATIVE_AMOUNT_PATTERN})(?:个)?(小时|钟头|月|天|日)后`),

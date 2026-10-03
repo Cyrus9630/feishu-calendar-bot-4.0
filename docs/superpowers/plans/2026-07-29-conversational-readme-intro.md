@@ -58,7 +58,7 @@ rg -n '能聊天就会用，会双击就能装|不需要记固定命令|不需�
 运行：
 
 ```bash
-node '/Users/aluo-1/Documents/Codex/2026-07-23/法律文风技能/skill/legal-writing-style/scripts/style-check.mjs' README.md
+# 使用本机配置的 Markdown 文风检查器检查 README.md，检查器路径不纳入公开仓库。
 ```
 
 预期：命令成功完成；如果脚本提示旧版 README 中既存内容，人工确认本次新增段落没有绝对化、虚假穷尽或模型化表达。
@@ -95,7 +95,7 @@ git commit -m "docs: simplify calendar bot introduction"
 运行：
 
 ```bash
-git -C '/Users/aluo-1/Documents/GitHub私人源码/feishu-calendar-bot-4.0' merge --ff-only docs/conversational-readme
+git merge --ff-only docs/conversational-readme
 ```
 
 预期：本地 `main` 快进到新文档提交，不产生合并提交。
@@ -105,7 +105,7 @@ git -C '/Users/aluo-1/Documents/GitHub私人源码/feishu-calendar-bot-4.0' merg
 运行：
 
 ```bash
-git -C '/Users/aluo-1/Documents/GitHub私人源码/feishu-calendar-bot-4.0' push origin main
+git push origin main
 ```
 
 预期：`origin/main` 更新到新文档提交。

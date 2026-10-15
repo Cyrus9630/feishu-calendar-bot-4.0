@@ -2,7 +2,10 @@ import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { extendScheduleDateOffset } from './schedule-date-offset';
+import {
+  extendScheduleDateOffset,
+  parseScheduleOffsetAmount,
+} from './schedule-date-offset';
 import {
   findExplicitScheduleDate,
   normalizeScheduleDateNotation,
@@ -39,8 +42,8 @@ const WEEKDAY_INDEX: Record<string, number> = {
   天: 6,
 };
 
-const RELATIVE_AMOUNT_PATTERN = '[零〇一二两三四五六七八九十\\d]{1,6}';
-const RELATIVE_DATE_PATTERN = `${RELATIVE_AMOUNT_PATTERN}\\s*(?:个\\s*)?(?:小时|钟头|月|天|日)\\s*后`;
+const RELATIVE_AMOUNT_PATTERN = '[零〇一二两三四五六七八九十0-9０-９]{1,6}';
+const RELATIVE_DATE_PATTERN = `${RELATIVE_AMOUNT_PATTERN}\\s*(?:个\\s*)?(?:小时|钟头|星期|礼拜|周|月|天|日)\\s*(?:之后|以后|后面|后)`;
 
 const DATE_EXPRESSION = new RegExp(
   [
@@ -82,6 +85,7 @@ export interface ScheduleDateExpression {
   index: number;
   anchor?: string;
   dayOffset?: number;
+  monthOffset?: number;
 }
 
 export interface ScheduleTimeExpression {
@@ -118,8 +122,19 @@ export function findScheduleDateExpression(
   ) {
     throw new Error('暂不支持分钟后或秒后，请使用小时后');
   }
-  if (/(?:几|多少)\s*(?:个\s*)?(?:小时|钟头|月|天|日)\s*后/.test(text)) {
+  if (
+    /(?:几|多少)\s*(?:个\s*)?(?:小时|钟头|星期|礼拜|周|月|天|日)\s*(?:之后|以后|后面|后)/.test(
+      text,
+    )
+  ) {
     throw new Error('相对时间请补充具体数字，例如“十天后”或“3小时后”');
+  }
+  if (
+    /(?:半|[-+−]\s*[0-9０-９零〇一二两三四五六七八九十]+|[0-9０-９]+\s*[.．]\s*[0-9０-９]+)\s*(?:个\s*)?(?:小时|钟头|星期|礼拜|周|月|天|日)\s*(?:之后|以后|后面|后)/.test(
+      text,
+    )
+  ) {
+    throw new Error('相对时间请使用明确的正整数，不能截取小数、负数或半个单位');
   }
   if (/周末/.test(text)) {
     throw new Error('“周末”无法确定具体日期，请明确周六或周日');
@@ -290,9 +305,12 @@ function parseDate(
     .trim();
   if (!normalized) throw new Error('缺少日期信息');
   const offset = findScheduleDateExpression(normalized);
-  if (offset?.anchor && offset.dayOffset !== undefined) {
+  if (offset?.anchor) {
     const target = parseDate(offset.anchor, reference, true)
-      .add(offset.dayOffset, 'day')
+      .add(
+        offset.monthOffset ?? offset.dayOffset ?? 0,
+        offset.monthOffset !== undefined ? 'month' : 'day',
+      )
       .startOf('day');
     if (!allowPast && target.endOf('day').isBefore(reference))
       throw new Error('计算后的日期已经过去，请提供新的日期');
@@ -503,12 +521,21 @@ function parseChineseNumber(value: string): number {
 }
 
 function parseRelativeScheduleTime(value: string): RelativeScheduleTime | null {
-  const normalized = value.replace(/\s+/g, '').trim();
+  const normalized = value
+    .replace(/[０-９]/g, (digit) =>
+      String.fromCharCode(digit.charCodeAt(0) - 0xfee0),
+    )
+    .replace(/\s+/g, '')
+    .trim();
   const match = normalized.match(
-    new RegExp(`(${RELATIVE_AMOUNT_PATTERN})(?:个)?(小时|钟头|月|天|日)后`),
+    new RegExp(
+      `(${RELATIVE_AMOUNT_PATTERN})(?:个)?(小时|钟头|星期|礼拜|周|月|天|日)(?:之后|以后|后面|后)`,
+    ),
   );
   if (!match) return null;
-  const amount = parseChineseNumber(match[1]);
+  const amount =
+    parseScheduleOffsetAmount(match[1]) *
+    (/周|星期|礼拜/.test(match[2]) ? 7 : 1);
   const rawUnit = match[2];
   const unit: RelativeScheduleTime['unit'] =
     rawUnit === '月'

@@ -55,9 +55,12 @@ function hasQueryLanguage(text: string) {
     .match(/^(?:我的?|)(.+?)(?:的)?(?:安排|日程|事项)[？?]?$/);
   if (short) {
     const dateText = short[1].replace(/的$/, '');
-    const date = /(?:周|星期|礼拜)(?![一二三四五六日天1-7])/.test(dateText)
-      ? null
-      : findScheduleDateExpression(dateText);
+    const date =
+      /(?:下下|下|本|这)(?:周|星期|礼拜)(?![一二三四五六日天1-7])/.test(
+        dateText,
+      )
+        ? null
+        : findScheduleDateExpression(dateText);
     if (date?.index === 0 && date.text.length === dateText.length) return true;
   }
   return /(?:什么|哪些|哪几|有几|有没有|查询|查看|看看|列出).*(?:安排|日程|事项)|(?:安排|日程|事项).*(?:什么|哪些|哪几|有几|有没有|查询|查看|看看)|^(?:今天|明天|后天|本周|这周|下周|本月|这个月|下个月)(?:的)?(?:安排|日程|事项)?[？?]?$/i.test(

@@ -1,6 +1,20 @@
 import { parseScheduleUpdateIntent } from './schedule-update';
 
 describe('schedule-update', () => {
+  it.each(['11月11日前一周', '11月11日两月后', '一个星期后', '两月后'])(
+    '修改保留完整周/月表达：%s',
+    (dateText) => {
+      const intent = parseScheduleUpdateIntent(
+        `把11月11日复查改到${dateText}下午3:40`,
+        '复查',
+      );
+      expect(intent?.changes).toEqual({
+        dateText,
+        timeText: '下午3:40',
+        title: '',
+      });
+    },
+  );
   it('修改保留完整的锚点偏移日期，不混入标题', () => {
     expect(
       parseScheduleUpdateIntent(

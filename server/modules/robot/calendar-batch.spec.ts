@@ -5,6 +5,14 @@ import {
 } from './calendar-batch';
 
 describe('calendar-batch', () => {
+  it.each(['11月11日前一周', '11月11日后两月', '两月后'])(
+    '批量继承完整周/月表达：%s',
+    (dateText) => {
+      expect(
+        parseBatchEnvelope(`${dateText}上午整理材料，下午见客户`).items,
+      ).toEqual([`${dateText}上午整理材料`, `${dateText}下午见客户`]);
+    },
+  );
   it('批量继承完整的锚点偏移日期', () => {
     expect(
       parseBatchEnvelope(

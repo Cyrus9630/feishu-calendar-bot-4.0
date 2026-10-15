@@ -74,7 +74,7 @@ const HELP_TEXTS = {
   ],
   create: [
     '创建日程：',
-    '日期前后天数：“11月11日前16天联系客户”按当年10月26日；“11月11日后16天复查”按当年11月27日。支持“前面／之前／后面／之后”和中文数字，未写钟点默认10:00，按自然日计算。',
+    '日期前后：“11月11日前16天”是10月26日，“11月11日前一周”是11月4日，“11月11日前两月”是9月11日。支持天／周／星期／礼拜／个月／月、中文或阿拉伯数字；“一周后”“两月后”从今天起算。周按7天、月按日历月份，月底不足取目标月末，未写钟点默认10:00。',
     '发送“17号上午7点体检 黄色”。未写日期默认今天；只写日期默认10:00；未写颜色默认蓝色。',
     '批量示例：“批量创建：17号上午体检；18号下午开会”。',
     '重复示例：“每年5月7日结婚纪念日”或“7月28日每三个月交房租”。',
@@ -674,7 +674,7 @@ export class CalendarCommandService {
       allDay: crossDay?.allDay,
     };
     if (findScheduleDateExpression(command.dateText)?.anchor) {
-      after.description = `日期换算：${command.dateText} → ${this.formatDateInput(range.startTime)}（按自然日计算）`;
+      after.description = `日期换算：${command.dateText} → ${this.formatDateInput(range.startTime)}（${findScheduleDateExpression(command.dateText)?.monthOffset !== undefined ? '按日历月份计算，月底不足取目标月末' : '按自然日计算'}）`;
     }
     const draft = {
       operation: 'create' as const,

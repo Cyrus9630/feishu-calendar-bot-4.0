@@ -156,6 +156,31 @@ describe('CalendarCommandService', () => {
     },
   );
 
+  it.each([
+    ['11月11日前16天准备材料', '2026-10-26T02:00:00.000Z'],
+    ['11 月 11 日前十六天 联系客户', '2026-10-26T02:00:00.000Z'],
+    ['11月11日之后16日下午3:40准备材料', '2026-11-27T07:40:00.000Z'],
+  ])('创建采用原话的完整日期偏移，而非AI猜测：%s', async (text, startTime) => {
+    const { service, actions } = setup({
+      action: 'create',
+      title: '准备材料',
+      date: '11月11日',
+      start_time: '',
+      duration_minutes: 0,
+      color: '',
+    });
+    await service.handleText(
+      { ...input, text },
+      new Date('2026-10-15T04:00:00Z'),
+    );
+    expect(actions.executeDirect).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        after: expect.objectContaining({ startTime }),
+      }),
+    );
+  });
+
   it('创建黄色体检日程并返回完整结果', async () => {
     const { service, actions } = setup({
       action: 'create',

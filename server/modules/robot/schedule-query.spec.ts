@@ -2,6 +2,14 @@ import { parseScheduleQuery } from './schedule-query';
 
 describe('parseScheduleQuery', () => {
   const now = new Date('2026-07-16T05:00:00.000Z'); // 周四 13:00
+  it.each([
+    ['11月11日前16天的安排', '2026-10-26'],
+    ['11月11日之后16天有什么安排', '2026-11-27'],
+  ])('查询与添加共用锚点偏移日期：%s', (text, date) => {
+    const query = parseScheduleQuery(text, new Date('2026-10-15T04:00:00Z'))!;
+    expect(query.start).toEqual(new Date(`${date}T00:00:00+08:00`));
+    expect(query.end.getTime() - query.start.getTime()).toBe(86400000);
+  });
   it.each(['十月一日的安排', '10.1的安排', '１０．１日程', '十月一有什么安排'])(
     '明确过去日期可以查询：%s',
     (text) => {

@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import { extendScheduleDateOffset } from './schedule-date-offset';
 import {
   findExplicitScheduleDate,
   normalizeScheduleDateNotation,
@@ -79,6 +80,8 @@ export interface TomorrowEarlyRange {
 export interface ScheduleDateExpression {
   text: string;
   index: number;
+  anchor?: string;
+  dayOffset?: number;
 }
 
 export interface ScheduleTimeExpression {
@@ -124,7 +127,7 @@ export function findScheduleDateExpression(
   const match = text.match(DATE_EXPRESSION);
   const explicitDate = findExplicitScheduleDate(text);
   if (explicitDate && (!match || explicitDate.index <= (match.index ?? 0)))
-    return explicitDate;
+    return extendScheduleDateOffset(text, explicitDate);
   if (!match || match.index === undefined) {
     if (
       /(?:下下周|下下星期|下下礼拜|下周|下星期|下礼拜|本周|这周|本星期|这星期|本礼拜|这礼拜)(?![一二三四五六日天])/.test(
@@ -136,7 +139,7 @@ export function findScheduleDateExpression(
     return null;
   }
   parseRelativeScheduleTime(match[0]);
-  return { text: match[0], index: match.index };
+  return extendScheduleDateOffset(text, { text: match[0], index: match.index });
 }
 
 export function findScheduleTimeExpressions(
@@ -170,7 +173,9 @@ export function computeScheduleRange(
       : referenceArg
     : referenceArg;
   const referenceTime = dayjs(reference).tz(SHANGHAI_TIME_ZONE);
-  const relative = parseRelativeScheduleTime(dateText);
+  const relative = findScheduleDateExpression(dateText)?.anchor
+    ? null
+    : parseRelativeScheduleTime(dateText);
   let targetDate: Dayjs;
   let start: Dayjs;
   if (relative?.unit === 'hour') {
@@ -284,6 +289,15 @@ function parseDate(
     .replace(/\s+/g, '')
     .trim();
   if (!normalized) throw new Error('缺少日期信息');
+  const offset = findScheduleDateExpression(normalized);
+  if (offset?.anchor && offset.dayOffset !== undefined) {
+    const target = parseDate(offset.anchor, reference, true)
+      .add(offset.dayOffset, 'day')
+      .startOf('day');
+    if (!allowPast && target.endOf('day').isBefore(reference))
+      throw new Error('计算后的日期已经过去，请提供新的日期');
+    return target;
+  }
 
   if (normalized.includes('大后天'))
     return reference.add(3, 'day').startOf('day');

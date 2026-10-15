@@ -1,3 +1,5 @@
+import { findScheduleDateExpression } from './schedule-time';
+
 export type BatchCalendarAction = 'create' | 'cancel';
 
 export interface BatchEnvelope {
@@ -10,8 +12,6 @@ const MAX_BATCH_ITEMS = 20;
 const CREATE_PREFIX = /^(?:批量\s*)?(?:创建|添加|新增)(?:日程)?\s*[:：]?\s*/;
 const CANCEL_PREFIX = /^(?:批量\s*)?(?:删除|取消)(?:日程)?\s*[:：]?\s*/;
 const NUMBER_PREFIX = /^\s*\d+\s*[.、)）]\s*/;
-const DATE_EXPRESSION =
-  /(?:今天|今日|明天|明日|后天|大后天|(?:下下周|下下星期|下下礼拜|下周|下星期|下礼拜|本周|这周|本星期|这星期|本礼拜|这礼拜|周|星期|礼拜)[一二三四五六日天]|\d{1,2}\s*月\s*\d{1,2}\s*[日号]|\d{1,2}\s*[日号])/;
 const TIME_EXPRESSION =
   /(?:凌晨|早上|上午|中午|下午|傍晚|晚上|\d{1,2}\s*[点时]|\d{1,2}\s*[:：]\s*\d{1,2})/;
 
@@ -48,12 +48,15 @@ function splitLoose(value: string): string[] {
     .split(/[，,、]/)
     .map((item) => item.trim())
     .filter(Boolean);
-  if (items.length < 2 || !DATE_EXPRESSION.test(items[0]))
+  if (items.length < 2 || !findScheduleDateExpression(items[0]))
     return [value.trim()];
   if (
     items
       .slice(1)
-      .every((item) => DATE_EXPRESSION.test(item) || TIME_EXPRESSION.test(item))
+      .every(
+        (item) =>
+          findScheduleDateExpression(item) || TIME_EXPRESSION.test(item),
+      )
   ) {
     return items;
   }
@@ -63,7 +66,7 @@ function splitLoose(value: string): string[] {
 function inheritBatchDates(items: string[]): string[] {
   let inheritedDate = '';
   return items.map((item) => {
-    const explicitDate = item.match(DATE_EXPRESSION)?.[0] || '';
+    const explicitDate = findScheduleDateExpression(item)?.text || '';
     if (explicitDate) {
       inheritedDate = explicitDate;
       return item;

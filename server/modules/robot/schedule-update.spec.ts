@@ -1,6 +1,21 @@
 import { parseScheduleUpdateIntent } from './schedule-update';
 
 describe('schedule-update', () => {
+  it('修改保留完整的锚点偏移日期，不混入标题', () => {
+    expect(
+      parseScheduleUpdateIntent(
+        '把11月11日复查改到11月11日之前16天下午3:40',
+        '复查',
+      ),
+    ).toEqual({
+      target: { dateText: '11月11日', timeText: '', title: '复查' },
+      changes: {
+        dateText: '11月11日之前16天',
+        timeText: '下午3:40',
+        title: '',
+      },
+    });
+  });
   it('分离原日期和新日期时间', () => {
     expect(
       parseScheduleUpdateIntent('把17号体检改到18号上午8点', '体检'),

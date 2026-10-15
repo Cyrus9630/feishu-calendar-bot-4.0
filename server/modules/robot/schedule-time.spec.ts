@@ -10,6 +10,81 @@ import {
 describe('schedule-time', () => {
   const reference = new Date('2026-07-14T05:00:00.000Z');
   it.each([
+    ['11 月 11 日前 16 天', '2026-10-26'],
+    ['11月11日前面16日', '2026-10-26'],
+    ['十一月十一日之前十六天', '2026-10-26'],
+    ['11.11的前16天', '2026-10-26'],
+    ['11月11日往前16天', '2026-10-26'],
+    ['11月11日提前16天', '2026-10-26'],
+    ['11月11日16天前', '2026-10-26'],
+    ['11月11日后16天', '2026-11-27'],
+    ['11月11日之后16日', '2026-11-27'],
+    ['11月11日后面十六天', '2026-11-27'],
+    ['11月11日往后16天', '2026-11-27'],
+    ['11月11日十六天之后', '2026-11-27'],
+    ['１１月１１日前１６天', '2026-10-26'],
+    ['28号前3天', '2026-10-25'],
+    ['27年1月1日前16天', '2026-12-16'],
+    ['12月31日后2天', '2027-01-02'],
+    ['28年3月1日前1天', '2028-02-29'],
+    ['11月11日前0天', '2026-11-11'],
+    ['11月11日1天后', '2026-11-12'],
+  ])('以指定日期为基准而不是今天计算：%s', (text, expected) => {
+    const now = new Date('2026-10-15T04:00:00Z');
+    const date = findScheduleDateExpression(`添加 ${text} 下午3:40准备材料`)!;
+    expect(date.text).toBe(text);
+    expect(date.index).toBe(3);
+    expect(resolveScheduleDate(date.text, now)).toEqual(
+      new Date(`${expected}T00:00:00+08:00`),
+    );
+    expect(
+      computeScheduleRange(date.text, '下午3:40', 60, now).startTime,
+    ).toEqual(new Date(`${expected}T15:40:00+08:00`));
+  });
+
+  it('先验证锚点日期，只对计算结果检查是否已经过去', () => {
+    const now = new Date('2026-10-15T04:00:00Z');
+    expect(resolveScheduleDate('10月1日后20天', now)).toEqual(
+      new Date('2026-10-21T00:00:00+08:00'),
+    );
+    expect(() => resolveScheduleDate('10月20日前16天', now)).toThrow(
+      '计算后的日期已经过去',
+    );
+    expect(resolveScheduleDate('10月20日前16天', now, true)).toEqual(
+      new Date('2026-10-04T00:00:00+08:00'),
+    );
+    expect(() => resolveScheduleDate('2月30日后365天', now)).toThrow(
+      '日期无效',
+    );
+    expect(() => resolveScheduleDate('1月1日前1天', now)).toThrow(
+      '计算后的日期已经过去',
+    );
+  });
+
+  it.each([
+    '11月11日前半天',
+    '11月11日前1.5天',
+    '11月11日前几天',
+    '11月11日前-16天',
+    '11月11日前3651天',
+    '11月11日前16天后',
+    '11月11日前16天到前3天',
+    '11月11日半天前',
+    '11月11日1.5天后',
+    '11月11日-16天前',
+  ])('不把无效偏移截断为锚点日期：%s', (text) => {
+    expect(() => findScheduleDateExpression(text)).toThrow();
+  });
+
+  it('不把事项后面的提前提醒误当作日期偏移', () => {
+    expect(
+      findScheduleDateExpression('11月11日开庭，提前16天提醒我')?.text,
+    ).toBe('11月11日');
+    expect(findScheduleDateExpression('11月11日前16天后续回访')?.text).toBe(
+      '11月11日前16天',
+    );
+  });
+  it.each([
     '十月一日',
     '十月一',
     '10.1',

@@ -19,6 +19,8 @@ This release accepts text instructions only and ignores image messages.
 
 ## Main features
 
+- Preserve names, project identifiers and additional context after spaces in Chinese event instructions; mixed time/color edits keep the event subject, and explicit renames exclude color settings. Instructions are retained in event descriptions for review.
+
 - Calendar-day offsets anchored to a specified date: `11月11日前16天` means October 26 of the current year, and `11月11日之后16天` means November 27. Chinese numbers, spacing, before/after variants, month/year crossings and the existing default clocks are supported for creation, updates, batch inheritance and date queries. Past results are not silently moved into the future.
 
 - Chinese and mixed date notation such as `十月十七`, `10月十七`, `10.1`, `10/1`, `10-1`, full-width digits and internal spacing; `27.10.1` means October 1, 2027. Creation, updates, batches and explicit-date queries share the same notation rules.
@@ -31,7 +33,7 @@ This release accepts text instructions only and ignores image messages.
 
 ## Security and data boundary
 
-The current version is **4.0.8**. See the [change log](./CHANGELOG.md). Chinese date offsets now accept weeks and calendar months, with Chinese, Arabic or full-width numbers: `11月11日前一周` means November 4; `11月11日前两月` means September 11. `一周后` and `两月后` count from today. A week is seven calendar days; month shifts clamp to the destination month's last day when needed. Creation, updates, batch inheritance and queries share these rules. Default clocks, recurring events and past-date protection are unchanged.
+The current version is **4.0.9**. See the [change log](./CHANGELOG.md). This release fixes omitted names and project details after spaces, and preserves event information during mixed edits. Existing date defaults, batch operations, recurrence, conflict confirmation and undo boundaries are unchanged.
 
 Each deployment must use its own Feishu custom app, group, user identity, and calendar. Credentials are supplied through local or Miaoda environment variables and are not included in this repository. The bot only accepts text messages from the configured user in the configured group and only accesses the calendar explicitly granted to it.
 

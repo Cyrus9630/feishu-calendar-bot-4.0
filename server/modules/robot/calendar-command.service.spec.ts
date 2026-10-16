@@ -185,6 +185,77 @@ describe('CalendarCommandService', () => {
     );
   });
 
+  it.each([
+    ['下周六中午吃饭 王先生 黄色', '吃饭 王先生'],
+    ['下周六中午王先生 吃饭 黄色', '王先生 吃饭'],
+    ['明天见客户 项目A 讨论付款条款 黄色', '见客户 项目A 讨论付款条款'],
+  ])('AI摘要遗漏的信息从本条原文补回：%s', async (text, summary) => {
+    const { service, actions } = setup({
+      action: 'create',
+      title: text.includes('吃饭') ? '吃饭' : '见客户',
+      color: '',
+    });
+    await service.handleText({ ...input, text }, reference);
+    expect(actions.executeDirect).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        after: expect.objectContaining({
+          summary,
+          colorName: '黄色',
+          description: expect.stringContaining('指令内容：'),
+        }),
+      }),
+    );
+  });
+
+  it('混合修改保留人名及原事项，并记录修改指令', async () => {
+    const { service, actions } = setup(
+      { action: 'update', title: '吃饭', color: '', start_time: '晚上' },
+      [
+        {
+          eventId: 'evt_old',
+          summary: '吃饭 项目沟通',
+          startTime: new Date('2026-10-22T10:00:00+08:00'),
+          endTime: new Date('2026-10-22T11:00:00+08:00'),
+        },
+      ],
+    );
+    await service.handleText(
+      { ...input, text: '周四吃饭 改为 黄色 晚上 李女士' },
+      new Date('2026-10-16T01:00:00Z'),
+    );
+    expect(actions.executeDirect).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventId: 'evt_old',
+        after: expect.objectContaining({
+          summary: '吃饭 项目沟通 李女士',
+          colorName: '黄色',
+          startTime: '2026-10-22T11:00:00.000Z',
+          description: expect.stringContaining('修改指令：'),
+        }),
+      }),
+    );
+  });
+
+  it('批量逐项保留各自的人名与项目，不串项', async () => {
+    const { service, actions } = setup([
+      { action: 'create', title: '吃饭', color: '黄色' },
+      { action: 'create', title: '开会', color: '黄色' },
+    ]);
+    await service.handleText(
+      {
+        ...input,
+        text: '批量创建：17号上午吃饭 王先生 黄色；18号下午开会 项目A 黄色',
+      },
+      reference,
+    );
+    const summaries = actions.executeDirect.mock.calls.map(
+      (call) => call[1].after.summary,
+    );
+    expect(summaries).toEqual(['吃饭 王先生', '开会 项目A']);
+  });
+
   it('创建黄色体检日程并返回完整结果', async () => {
     const { service, actions } = setup({
       action: 'create',
@@ -409,7 +480,7 @@ describe('CalendarCommandService', () => {
       expect.anything(),
       expect.objectContaining({
         after: expect.objectContaining({
-          summary: '出差',
+          summary: '出差 上海',
           startTime: '2026-07-19T16:00:00.000Z',
           endTime: '2026-07-22T16:00:00.000Z',
           allDay: true,

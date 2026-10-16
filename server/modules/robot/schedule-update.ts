@@ -2,6 +2,10 @@ import {
   findScheduleDateExpression,
   findScheduleTimeExpressions,
 } from './schedule-time';
+import {
+  extractScheduleMatterText,
+  sourceScheduleColor,
+} from './schedule-title';
 
 export interface ScheduleUpdateIntent {
   target: {
@@ -13,13 +17,13 @@ export interface ScheduleUpdateIntent {
     dateText: string;
     timeText: string;
     title: string;
+    titleMode?: 'append';
   };
 }
 
 const CHANGE_MARKER =
   /改名为|标题(?:修改|调整|改)?为|事项(?:修改|调整|改)?为|时间(?:修改|调整|改)?(?:为|到)|改到|调整到|修改到|改成|修改为|调整为|改为/;
 const RENAME_MARKER = /改名为|标题(?:修改|调整|改)?为|事项(?:修改|调整|改)?为/;
-const COLOR_VALUE = /^(?:红|橙|黄|绿|蓝|紫|灰)(?:色)?$/;
 
 export function parseScheduleUpdateIntent(
   sourceText: string,
@@ -37,14 +41,20 @@ export function parseScheduleUpdateIntent(
   const afterTime = findScheduleTimeExpressions(after)[0]?.text || '';
   const targetTitle =
     cleanTargetTitle(before, beforeDate, beforeTime) || fallbackTitle;
-  const changeTitle = shouldTreatAsRename(
-    marker?.value || '',
-    after,
-    afterDate,
-    afterTime,
-  )
-    ? cleanNewTitle(after, afterDate, afterTime)
-    : '';
+  const matter = marker ? extractScheduleMatterText(after) : '';
+  const changeTitle = /^(?:正式|转为?正式|确定为正式|不再暂定)$/.test(matter)
+    ? ''
+    : matter;
+  const appendTitle =
+    !!changeTitle &&
+    !!(
+      afterDate ||
+      afterTime ||
+      sourceScheduleColor(after) ||
+      /(?:地点|位置|地址)\s*[:：]|提前|提醒/.test(after)
+    ) &&
+    !RENAME_MARKER.test(marker?.value || '') &&
+    !compactTitle(changeTitle).includes(compactTitle(targetTitle));
   return {
     target: {
       dateText: beforeDate,
@@ -55,6 +65,7 @@ export function parseScheduleUpdateIntent(
       dateText: afterDate,
       timeText: afterTime,
       title: changeTitle,
+      ...(appendTitle ? { titleMode: 'append' as const } : {}),
     },
   };
 }
@@ -69,6 +80,7 @@ function findChangeMarker(sourceText: string) {
   }
   for (const match of sourceText.matchAll(/改/g)) {
     const index = match.index ?? 0;
+    if (sourceText[index - 1] === '修') continue;
     const after = sourceText.slice(index + 1);
     if (
       findScheduleDateExpression(after) ||
@@ -81,40 +93,32 @@ function findChangeMarker(sourceText: string) {
 }
 
 function cleanTargetTitle(value: string, dateText: string, timeText: string) {
-  return value
-    .replace(/^(?:请|麻烦)?\s*(?:把|将|修改|调整)\s*/, '')
-    .replace(dateText, '')
-    .replace(timeText, '')
-    .replace(
-      /(?:仅此次|仅本次|本次及后续|此次及后续|全部|所有|每次|整个系列|整组)\s*$/g,
-      '',
-    )
-    .replace(/(?:的)?(?:日程|安排|事项)\s*$/g, '')
-    .replace(/^[\s,，、:：-]+|[\s,，、:：-]+$/g, '')
-    .trim();
-}
-
-function cleanNewTitle(value: string, dateText: string, timeText: string) {
-  return value
-    .replace(dateText, '')
-    .replace(timeText, '')
-    .replace(/^[\s,，、:：-]+|[\s,，、:：。！!-]+$/g, '')
-    .trim();
-}
-
-function shouldTreatAsRename(
-  marker: string,
-  after: string,
-  dateText: string,
-  timeText: string,
-) {
-  if (RENAME_MARKER.test(marker)) return true;
-  const value = cleanNewTitle(after, dateText, timeText);
-  return (
-    !!value &&
-    !dateText &&
-    !timeText &&
-    !COLOR_VALUE.test(value) &&
-    !/^(?:地点|位置|提醒|提前)/.test(value)
+  return extractScheduleMatterText(
+    value
+      .replace(/^(?:请|麻烦)?\s*(?:把|将|修改|调整)\s*/, '')
+      .replace(dateText, '')
+      .replace(timeText, '')
+      .replace(
+        /(?:仅此次|仅本次|本次及后续|此次及后续|全部|所有|每次|整个系列|整组)\s*$/g,
+        '',
+      )
+      .replace(/(?:的)?(?:日程|安排|事项)\s*$/g, '')
+      .replace(/^[\s,，、:：-]+|[\s,，、:：-]+$/g, '')
+      .trim(),
   );
+}
+
+function compactTitle(value: string) {
+  return value.replace(/\s+/g, '');
+}
+
+export function resolveScheduleUpdateTitle(
+  original: string,
+  changes: ScheduleUpdateIntent['changes'],
+) {
+  if (!changes.title) return original;
+  if (changes.titleMode !== 'append') return changes.title;
+  return compactTitle(original).includes(compactTitle(changes.title))
+    ? original
+    : `${original} ${changes.title}`;
 }

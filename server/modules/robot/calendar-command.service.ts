@@ -47,7 +47,15 @@ import {
   stripScheduleRecurrence,
   truncateScheduleRecurrence,
 } from './schedule-recurrence';
-import { parseScheduleUpdateIntent } from './schedule-update';
+import {
+  parseScheduleUpdateIntent,
+  resolveScheduleUpdateTitle,
+} from './schedule-update';
+import {
+  preserveScheduleTitle,
+  sourceScheduleColor,
+  withScheduleSource,
+} from './schedule-title';
 import { parseScheduleQuery } from './schedule-query';
 import { CalendarQueryService } from './calendar-query.service';
 import { parseCrossDayScheduleRange } from './schedule-range';
@@ -676,6 +684,7 @@ export class CalendarCommandService {
     if (findScheduleDateExpression(command.dateText)?.anchor) {
       after.description = `日期换算：${command.dateText} → ${this.formatDateInput(range.startTime)}（${findScheduleDateExpression(command.dateText)?.monthOffset !== undefined ? '按日历月份计算，月底不足取目标月末' : '按自然日计算'}）`;
     }
+    after.description = withScheduleSource(after.description, input.text);
     const draft = {
       operation: 'create' as const,
       sourceOperationId: options.sourceOperationId,
@@ -834,7 +843,7 @@ export class CalendarCommandService {
         `${this.formatRange(original.startTime, original.endTime)} → ${this.formatRange(range.startTime, range.endTime)}`,
       );
     }
-    if (raw.color?.trim()) {
+    if (command.colorExplicit) {
       selectedAfter.color = command.color.rgb;
       selectedAfter.colorName = command.color.name;
       changes.push(`颜色改为${command.color.name}`);
@@ -843,12 +852,21 @@ export class CalendarCommandService {
       selectedAfter.location = command.location;
       changes.push(`地点改为${command.location}`);
     }
-    if (intent.changes.title && intent.changes.title !== original.summary) {
-      selectedAfter.summary = intent.changes.title;
-      changes.push(`事项改为${intent.changes.title}`);
+    const updatedTitle = resolveScheduleUpdateTitle(
+      original.summary,
+      intent.changes,
+    );
+    if (updatedTitle !== original.summary) {
+      selectedAfter.summary = updatedTitle;
+      changes.push(`事项改为${updatedTitle}`);
     }
     if (changes.length === 0)
       throw new Error('未识别到需要修改的时间、颜色、地点或事项');
+    selectedAfter.description = withScheduleSource(
+      selectedAfter.description,
+      request.sourceText,
+      true,
+    );
     let conflicts: CalendarEventRecord[] = [];
     if (timeChanged) {
       const start = new Date(selectedAfter.startTime);
@@ -1041,7 +1059,7 @@ export class CalendarCommandService {
       start = range.startTime;
       end = range.endTime;
     }
-    const summary = intent.changes.title || event.summary;
+    const summary = resolveScheduleUpdateTitle(event.summary, intent.changes);
     return `${this.formatRange(start, end)}｜${summary}`;
   }
 
@@ -1206,17 +1224,27 @@ export class CalendarCommandService {
       (parsedDate && (!sourceText || sourceText.includes(parsedDate))
         ? parsedDate
         : '');
-    return normalizeScheduleCommand({
+    const sourceColor = raw.color?.trim()
+      ? undefined
+      : sourceScheduleColor(sourceText);
+    const command = normalizeScheduleCommand({
       action: raw.action,
       title: raw.title,
       date: dateText,
       start_time: raw.start_time || raw.time,
       end_time: raw.end_time,
       duration_minutes: raw.duration_minutes,
-      color: raw.color,
+      color: raw.color?.trim() || sourceColor?.name,
       location: raw.location,
       reminder_minutes: raw.reminder_minutes,
     });
+    if (command.action === 'create')
+      command.title = preserveScheduleTitle(
+        sourceText,
+        command.title,
+        command.location,
+      );
+    return command;
   }
 
   private reply(
